@@ -10,33 +10,90 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicWidgetRequestHumanRouteImport } from './routes/api/public/widget/request-human'
+import { Route as ApiPublicWidgetPollRouteImport } from './routes/api/public/widget/poll'
+import { Route as ApiPublicWidgetMessageRouteImport } from './routes/api/public/widget/message'
+import { Route as ApiPublicWidgetInitRouteImport } from './routes/api/public/widget/init'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicWidgetRequestHumanRoute =
+  ApiPublicWidgetRequestHumanRouteImport.update({
+    id: '/api/public/widget/request-human',
+    path: '/api/public/widget/request-human',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWidgetPollRoute = ApiPublicWidgetPollRouteImport.update({
+  id: '/api/public/widget/poll',
+  path: '/api/public/widget/poll',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicWidgetMessageRoute = ApiPublicWidgetMessageRouteImport.update({
+  id: '/api/public/widget/message',
+  path: '/api/public/widget/message',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicWidgetInitRoute = ApiPublicWidgetInitRouteImport.update({
+  id: '/api/public/widget/init',
+  path: '/api/public/widget/init',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/widget/init': typeof ApiPublicWidgetInitRoute
+  '/api/public/widget/message': typeof ApiPublicWidgetMessageRoute
+  '/api/public/widget/poll': typeof ApiPublicWidgetPollRoute
+  '/api/public/widget/request-human': typeof ApiPublicWidgetRequestHumanRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/widget/init': typeof ApiPublicWidgetInitRoute
+  '/api/public/widget/message': typeof ApiPublicWidgetMessageRoute
+  '/api/public/widget/poll': typeof ApiPublicWidgetPollRoute
+  '/api/public/widget/request-human': typeof ApiPublicWidgetRequestHumanRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/widget/init': typeof ApiPublicWidgetInitRoute
+  '/api/public/widget/message': typeof ApiPublicWidgetMessageRoute
+  '/api/public/widget/poll': typeof ApiPublicWidgetPollRoute
+  '/api/public/widget/request-human': typeof ApiPublicWidgetRequestHumanRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/api/public/widget/init'
+    | '/api/public/widget/message'
+    | '/api/public/widget/poll'
+    | '/api/public/widget/request-human'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/api/public/widget/init'
+    | '/api/public/widget/message'
+    | '/api/public/widget/poll'
+    | '/api/public/widget/request-human'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/public/widget/init'
+    | '/api/public/widget/message'
+    | '/api/public/widget/poll'
+    | '/api/public/widget/request-human'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicWidgetInitRoute: typeof ApiPublicWidgetInitRoute
+  ApiPublicWidgetMessageRoute: typeof ApiPublicWidgetMessageRoute
+  ApiPublicWidgetPollRoute: typeof ApiPublicWidgetPollRoute
+  ApiPublicWidgetRequestHumanRoute: typeof ApiPublicWidgetRequestHumanRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,12 +105,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/widget/request-human': {
+      id: '/api/public/widget/request-human'
+      path: '/api/public/widget/request-human'
+      fullPath: '/api/public/widget/request-human'
+      preLoaderRoute: typeof ApiPublicWidgetRequestHumanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/widget/poll': {
+      id: '/api/public/widget/poll'
+      path: '/api/public/widget/poll'
+      fullPath: '/api/public/widget/poll'
+      preLoaderRoute: typeof ApiPublicWidgetPollRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/widget/message': {
+      id: '/api/public/widget/message'
+      path: '/api/public/widget/message'
+      fullPath: '/api/public/widget/message'
+      preLoaderRoute: typeof ApiPublicWidgetMessageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/widget/init': {
+      id: '/api/public/widget/init'
+      path: '/api/public/widget/init'
+      fullPath: '/api/public/widget/init'
+      preLoaderRoute: typeof ApiPublicWidgetInitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicWidgetInitRoute: ApiPublicWidgetInitRoute,
+  ApiPublicWidgetMessageRoute: ApiPublicWidgetMessageRoute,
+  ApiPublicWidgetPollRoute: ApiPublicWidgetPollRoute,
+  ApiPublicWidgetRequestHumanRoute: ApiPublicWidgetRequestHumanRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
