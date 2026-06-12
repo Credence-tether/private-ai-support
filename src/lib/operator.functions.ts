@@ -81,12 +81,12 @@ export const sendReply = createServerFn({ method: "POST" })
       .select("status, assigned_to")
       .eq("id", data.conversationId)
       .single();
-    const patch: Record<string, unknown> = {
-      status: "human",
+    const patch = {
+      status: "human" as const,
       last_message_at: now,
       unread_for_operator: false,
+      ...(conv?.assigned_to ? {} : { assigned_to: context.userId }),
     };
-    if (!conv?.assigned_to) patch.assigned_to = context.userId;
     const { error: upErr } = await context.supabase
       .from("conversations")
       .update(patch)
