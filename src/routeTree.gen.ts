@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WidgetDotjsRouteImport } from './routes/widget[.]js'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPublicWidgetRequestHumanRouteImport } from './routes/api/public/widget/request-human'
 import { Route as ApiPublicWidgetPollRouteImport } from './routes/api/public/widget/poll'
 import { Route as ApiPublicWidgetMessageRouteImport } from './routes/api/public/widget/message'
 import { Route as ApiPublicWidgetInitRouteImport } from './routes/api/public/widget/init'
 
+const WidgetDotjsRoute = WidgetDotjsRouteImport.update({
+  id: '/widget.js',
+  path: '/widget.js',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -44,6 +50,7 @@ const ApiPublicWidgetInitRoute = ApiPublicWidgetInitRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/widget.js': typeof WidgetDotjsRoute
   '/api/public/widget/init': typeof ApiPublicWidgetInitRoute
   '/api/public/widget/message': typeof ApiPublicWidgetMessageRoute
   '/api/public/widget/poll': typeof ApiPublicWidgetPollRoute
@@ -51,6 +58,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/widget.js': typeof WidgetDotjsRoute
   '/api/public/widget/init': typeof ApiPublicWidgetInitRoute
   '/api/public/widget/message': typeof ApiPublicWidgetMessageRoute
   '/api/public/widget/poll': typeof ApiPublicWidgetPollRoute
@@ -59,6 +67,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/widget.js': typeof WidgetDotjsRoute
   '/api/public/widget/init': typeof ApiPublicWidgetInitRoute
   '/api/public/widget/message': typeof ApiPublicWidgetMessageRoute
   '/api/public/widget/poll': typeof ApiPublicWidgetPollRoute
@@ -68,6 +77,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/widget.js'
     | '/api/public/widget/init'
     | '/api/public/widget/message'
     | '/api/public/widget/poll'
@@ -75,6 +85,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/widget.js'
     | '/api/public/widget/init'
     | '/api/public/widget/message'
     | '/api/public/widget/poll'
@@ -82,6 +93,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/widget.js'
     | '/api/public/widget/init'
     | '/api/public/widget/message'
     | '/api/public/widget/poll'
@@ -90,6 +102,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  WidgetDotjsRoute: typeof WidgetDotjsRoute
   ApiPublicWidgetInitRoute: typeof ApiPublicWidgetInitRoute
   ApiPublicWidgetMessageRoute: typeof ApiPublicWidgetMessageRoute
   ApiPublicWidgetPollRoute: typeof ApiPublicWidgetPollRoute
@@ -98,6 +111,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/widget.js': {
+      id: '/widget.js'
+      path: '/widget.js'
+      fullPath: '/widget.js'
+      preLoaderRoute: typeof WidgetDotjsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -138,6 +158,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  WidgetDotjsRoute: WidgetDotjsRoute,
   ApiPublicWidgetInitRoute: ApiPublicWidgetInitRoute,
   ApiPublicWidgetMessageRoute: ApiPublicWidgetMessageRoute,
   ApiPublicWidgetPollRoute: ApiPublicWidgetPollRoute,
