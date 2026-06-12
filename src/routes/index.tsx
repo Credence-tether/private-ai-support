@@ -23,7 +23,7 @@ function Landing() {
     supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
   }, []);
 
-  if (signedIn) return <Navigate to="/" replace />;
+  if (signedIn) return <Navigate to="/inbox" replace />;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">

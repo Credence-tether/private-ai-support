@@ -59,7 +59,7 @@ function SettingsPage() {
     <div className="min-h-screen bg-muted/20">
       <header className="flex h-14 items-center gap-3 border-b bg-background px-4">
         <Button asChild variant="ghost" size="sm">
-          <Link to="/">
+          <Link to="/inbox">
             <ArrowLeft className="mr-1 h-4 w-4" /> Back
           </Link>
         </Button>
