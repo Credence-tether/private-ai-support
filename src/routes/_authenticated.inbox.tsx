@@ -30,7 +30,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { EnableNotifications } from "@/components/EnableNotifications";
 
-export const Route = createFileRoute("/_authenticated/")({
+export const Route = createFileRoute("/_authenticated/inbox")({
   component: Dashboard,
 });
 
