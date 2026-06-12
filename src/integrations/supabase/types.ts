@@ -113,6 +113,9 @@ export type Database = {
           system_prompt: string
           updated_at: string
           user_id: string
+          vapid_private_key: string | null
+          vapid_public_key: string | null
+          vapid_subject: string
         }
         Insert: {
           allowed_origins?: string[]
@@ -127,6 +130,9 @@ export type Database = {
           system_prompt?: string
           updated_at?: string
           user_id: string
+          vapid_private_key?: string | null
+          vapid_public_key?: string | null
+          vapid_subject?: string
         }
         Update: {
           allowed_origins?: string[]
@@ -141,6 +147,9 @@ export type Database = {
           system_prompt?: string
           updated_at?: string
           user_id?: string
+          vapid_private_key?: string | null
+          vapid_public_key?: string | null
+          vapid_subject?: string
         }
         Relationships: []
       }
