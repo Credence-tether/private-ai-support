@@ -14,16 +14,258 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      conversations: {
+        Row: {
+          assigned_to: string | null
+          closed_at: string | null
+          id: string
+          last_message_at: string
+          page_url: string | null
+          site_origin: string | null
+          started_at: string
+          status: Database["public"]["Enums"]["conversation_status"]
+          unread_for_operator: boolean
+          updated_at: string
+          visitor_id: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          closed_at?: string | null
+          id?: string
+          last_message_at?: string
+          page_url?: string | null
+          site_origin?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["conversation_status"]
+          unread_for_operator?: boolean
+          updated_at?: string
+          visitor_id: string
+        }
+        Update: {
+          assigned_to?: string | null
+          closed_at?: string | null
+          id?: string
+          last_message_at?: string
+          page_url?: string | null
+          site_origin?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["conversation_status"]
+          unread_for_operator?: boolean
+          updated_at?: string
+          visitor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_visitor_id_fkey"
+            columns: ["visitor_id"]
+            isOneToOne: false
+            referencedRelation: "visitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          operator_user_id: string | null
+          role: Database["public"]["Enums"]["message_role"]
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          operator_user_id?: string | null
+          role: Database["public"]["Enums"]["message_role"]
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          operator_user_id?: string | null
+          role?: Database["public"]["Enums"]["message_role"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      operator_settings: {
+        Row: {
+          allowed_origins: string[]
+          away_message: string
+          brand_color: string
+          brand_name: string
+          greeting: string
+          groq_model: string
+          notify_on_human_request: boolean
+          notify_on_new_conversation: boolean
+          notify_on_visitor_message: boolean
+          system_prompt: string
+          updated_at: string
+          user_id: string
+          vapid_private_key: string | null
+          vapid_public_key: string | null
+          vapid_subject: string
+        }
+        Insert: {
+          allowed_origins?: string[]
+          away_message?: string
+          brand_color?: string
+          brand_name?: string
+          greeting?: string
+          groq_model?: string
+          notify_on_human_request?: boolean
+          notify_on_new_conversation?: boolean
+          notify_on_visitor_message?: boolean
+          system_prompt?: string
+          updated_at?: string
+          user_id: string
+          vapid_private_key?: string | null
+          vapid_public_key?: string | null
+          vapid_subject?: string
+        }
+        Update: {
+          allowed_origins?: string[]
+          away_message?: string
+          brand_color?: string
+          brand_name?: string
+          greeting?: string
+          groq_model?: string
+          notify_on_human_request?: boolean
+          notify_on_new_conversation?: boolean
+          notify_on_visitor_message?: boolean
+          system_prompt?: string
+          updated_at?: string
+          user_id?: string
+          vapid_private_key?: string | null
+          vapid_public_key?: string | null
+          vapid_subject?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth_secret: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_used_at: string
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth_secret: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_used_at?: string
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth_secret?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_used_at?: string
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      visitors: {
+        Row: {
+          blocked: boolean
+          created_at: string
+          email: string | null
+          fingerprint: string | null
+          id: string
+          ip_country: string | null
+          last_seen_at: string
+          name: string | null
+          referrer: string | null
+          site_origin: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          blocked?: boolean
+          created_at?: string
+          email?: string | null
+          fingerprint?: string | null
+          id?: string
+          ip_country?: string | null
+          last_seen_at?: string
+          name?: string | null
+          referrer?: string | null
+          site_origin?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          blocked?: boolean
+          created_at?: string
+          email?: string | null
+          fingerprint?: string | null
+          id?: string
+          ip_country?: string | null
+          last_seen_at?: string
+          name?: string | null
+          referrer?: string | null
+          site_origin?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "operator"
+      conversation_status: "bot" | "pending_human" | "human" | "closed"
+      message_role: "visitor" | "assistant" | "operator" | "system"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +392,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["operator"],
+      conversation_status: ["bot", "pending_human", "human", "closed"],
+      message_role: ["visitor", "assistant", "operator", "system"],
+    },
   },
 } as const

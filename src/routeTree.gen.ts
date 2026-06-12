@@ -9,38 +9,174 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WidgetDotjsRouteImport } from './routes/widget[.]js'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated.settings'
+import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated.inbox'
+import { Route as ApiPublicWidgetRequestHumanRouteImport } from './routes/api/public/widget/request-human'
+import { Route as ApiPublicWidgetPollRouteImport } from './routes/api/public/widget/poll'
+import { Route as ApiPublicWidgetMessageRouteImport } from './routes/api/public/widget/message'
+import { Route as ApiPublicWidgetInitRouteImport } from './routes/api/public/widget/init'
 
+const WidgetDotjsRoute = WidgetDotjsRouteImport.update({
+  id: '/widget.js',
+  path: '/widget.js',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedInboxRoute = AuthenticatedInboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const ApiPublicWidgetRequestHumanRoute =
+  ApiPublicWidgetRequestHumanRouteImport.update({
+    id: '/api/public/widget/request-human',
+    path: '/api/public/widget/request-human',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWidgetPollRoute = ApiPublicWidgetPollRouteImport.update({
+  id: '/api/public/widget/poll',
+  path: '/api/public/widget/poll',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicWidgetMessageRoute = ApiPublicWidgetMessageRouteImport.update({
+  id: '/api/public/widget/message',
+  path: '/api/public/widget/message',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicWidgetInitRoute = ApiPublicWidgetInitRouteImport.update({
+  id: '/api/public/widget/init',
+  path: '/api/public/widget/init',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/widget.js': typeof WidgetDotjsRoute
+  '/inbox': typeof AuthenticatedInboxRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/api/public/widget/init': typeof ApiPublicWidgetInitRoute
+  '/api/public/widget/message': typeof ApiPublicWidgetMessageRoute
+  '/api/public/widget/poll': typeof ApiPublicWidgetPollRoute
+  '/api/public/widget/request-human': typeof ApiPublicWidgetRequestHumanRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/widget.js': typeof WidgetDotjsRoute
+  '/inbox': typeof AuthenticatedInboxRoute
+  '/settings': typeof AuthenticatedSettingsRoute
+  '/api/public/widget/init': typeof ApiPublicWidgetInitRoute
+  '/api/public/widget/message': typeof ApiPublicWidgetMessageRoute
+  '/api/public/widget/poll': typeof ApiPublicWidgetPollRoute
+  '/api/public/widget/request-human': typeof ApiPublicWidgetRequestHumanRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/widget.js': typeof WidgetDotjsRoute
+  '/_authenticated/inbox': typeof AuthenticatedInboxRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/api/public/widget/init': typeof ApiPublicWidgetInitRoute
+  '/api/public/widget/message': typeof ApiPublicWidgetMessageRoute
+  '/api/public/widget/poll': typeof ApiPublicWidgetPollRoute
+  '/api/public/widget/request-human': typeof ApiPublicWidgetRequestHumanRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/widget.js'
+    | '/inbox'
+    | '/settings'
+    | '/api/public/widget/init'
+    | '/api/public/widget/message'
+    | '/api/public/widget/poll'
+    | '/api/public/widget/request-human'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/widget.js'
+    | '/inbox'
+    | '/settings'
+    | '/api/public/widget/init'
+    | '/api/public/widget/message'
+    | '/api/public/widget/poll'
+    | '/api/public/widget/request-human'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/widget.js'
+    | '/_authenticated/inbox'
+    | '/_authenticated/settings'
+    | '/api/public/widget/init'
+    | '/api/public/widget/message'
+    | '/api/public/widget/poll'
+    | '/api/public/widget/request-human'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
+  AuthRoute: typeof AuthRoute
+  WidgetDotjsRoute: typeof WidgetDotjsRoute
+  ApiPublicWidgetInitRoute: typeof ApiPublicWidgetInitRoute
+  ApiPublicWidgetMessageRoute: typeof ApiPublicWidgetMessageRoute
+  ApiPublicWidgetPollRoute: typeof ApiPublicWidgetPollRoute
+  ApiPublicWidgetRequestHumanRoute: typeof ApiPublicWidgetRequestHumanRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/widget.js': {
+      id: '/widget.js'
+      path: '/widget.js'
+      fullPath: '/widget.js'
+      preLoaderRoute: typeof WidgetDotjsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +184,75 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/inbox': {
+      id: '/_authenticated/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof AuthenticatedInboxRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/api/public/widget/request-human': {
+      id: '/api/public/widget/request-human'
+      path: '/api/public/widget/request-human'
+      fullPath: '/api/public/widget/request-human'
+      preLoaderRoute: typeof ApiPublicWidgetRequestHumanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/widget/poll': {
+      id: '/api/public/widget/poll'
+      path: '/api/public/widget/poll'
+      fullPath: '/api/public/widget/poll'
+      preLoaderRoute: typeof ApiPublicWidgetPollRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/widget/message': {
+      id: '/api/public/widget/message'
+      path: '/api/public/widget/message'
+      fullPath: '/api/public/widget/message'
+      preLoaderRoute: typeof ApiPublicWidgetMessageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/widget/init': {
+      id: '/api/public/widget/init'
+      path: '/api/public/widget/init'
+      fullPath: '/api/public/widget/init'
+      preLoaderRoute: typeof ApiPublicWidgetInitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AuthenticatedRouteChildren {
+  AuthenticatedInboxRoute: typeof AuthenticatedInboxRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedInboxRoute: AuthenticatedInboxRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
+  AuthRoute: AuthRoute,
+  WidgetDotjsRoute: WidgetDotjsRoute,
+  ApiPublicWidgetInitRoute: ApiPublicWidgetInitRoute,
+  ApiPublicWidgetMessageRoute: ApiPublicWidgetMessageRoute,
+  ApiPublicWidgetPollRoute: ApiPublicWidgetPollRoute,
+  ApiPublicWidgetRequestHumanRoute: ApiPublicWidgetRequestHumanRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
