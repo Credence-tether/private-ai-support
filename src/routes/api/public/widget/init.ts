@@ -118,15 +118,16 @@ export const Route = createFileRoute("/api/public/widget/init")({
           });
         }
 
-        // Block check
+        // Block check + fetch email status for pre-chat gate
         const { data: visitor } = await supabaseAdmin
           .from("visitors")
-          .select("blocked")
+          .select("blocked, email")
           .eq("id", visitorId!)
           .single();
         if (visitor?.blocked) {
           return jsonCors({ error: "Blocked" }, { status: 403 });
         }
+        const hasEmail = !!visitor?.email;
 
         // Find an open conversation (bot/pending_human/human), else create new
         const { data: existingConv } = await supabaseAdmin
@@ -190,6 +191,8 @@ export const Route = createFileRoute("/api/public/widget/init")({
           brand_color: settings?.brand_color ?? "#0ea5e9",
           brand_name: settings?.brand_name ?? "Support",
           messages: msgs ?? [],
+          requires_email: !hasEmail,
+          visitor_email: visitor?.email ?? null,
         });
       },
     },
