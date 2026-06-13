@@ -37,7 +37,7 @@ export const listLiveVisitors = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("visitors")
       .select(
-        "id, name, email, ip_country, ip_city, ip_region, browser, os, current_page_url, current_page_title, referrer, last_seen_at, first_seen_at",
+        "id, name, email, ip_country, ip_city, ip_region, browser, os, current_page_url, current_page_title, referrer, last_seen_at, created_at",
       )
       .gte("last_seen_at", since)
       .eq("blocked", false)
@@ -75,7 +75,7 @@ export const getConversation = createServerFn({ method: "POST" })
       context.supabase
         .from("conversations")
         .select(
-          "id, status, assigned_to, unread_for_operator, last_message_at, started_at, page_url, site_origin, visitor:visitors(id, name, email, ip_country, ip_city, ip_region, browser, os, current_page_url, current_page_title, user_agent, referrer, fingerprint, last_seen_at, first_seen_at)",
+          "id, status, assigned_to, unread_for_operator, last_message_at, started_at, page_url, site_origin, visitor:visitors(id, name, email, ip_country, ip_city, ip_region, browser, os, current_page_url, current_page_title, user_agent, referrer, fingerprint, last_seen_at, created_at)",
         )
         .eq("id", data.conversationId)
         .single(),
