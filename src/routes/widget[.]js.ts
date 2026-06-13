@@ -21,11 +21,15 @@ const WIDGET_JS = `(function(){
     brand: attr('name', DEFAULTS.name)
   };
 
-  var LS_VID = 'lvs_vid', LS_VTOK = 'lvs_vtok', LS_CID = 'lvs_cid';
+  var LS_VID = 'lvs_vid', LS_VTOK = 'lvs_vtok', LS_CID = 'lvs_cid', LS_EMAIL = 'lvs_email';
   function getLS(k){ try { return localStorage.getItem(k) || ''; } catch(e){ return ''; } }
   function setLS(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
 
-  var state = { vid:getLS(LS_VID), vtok:getLS(LS_VTOK), cid:getLS(LS_CID), msgs:[], status:'bot', lastSince:null, open:false, sending:false };
+  var state = {
+    vid:getLS(LS_VID), vtok:getLS(LS_VTOK), cid:getLS(LS_CID), email:getLS(LS_EMAIL),
+    msgs:[], status:'bot', lastSince:null, open:false, sending:false,
+    requiresEmail:false, initialized:false
+  };
 
   function fingerprint(){
     try {
@@ -35,11 +39,38 @@ const WIDGET_JS = `(function(){
     } catch(e){ return 'fp_anon'; }
   }
 
-  async function api(path, body){
-    var res = await fetch(CFG.apiBase + '/api/public/widget/' + path, {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body||{})
-    });
-    if (!res.ok) throw new Error('http ' + res.status);
+  // Tiny UA parser — browser + OS only
+  function parseUA(){
+    var ua = navigator.userAgent || '';
+    var browser = 'Other';
+    if (/Edg\\//.test(ua)) browser = 'Edge';
+    else if (/OPR\\//.test(ua) || /Opera/.test(ua)) browser = 'Opera';
+    else if (/Chrome\\//.test(ua) && !/Chromium/.test(ua)) browser = 'Chrome';
+    else if (/Firefox\\//.test(ua)) browser = 'Firefox';
+    else if (/Safari\\//.test(ua) && /Version\\//.test(ua)) browser = 'Safari';
+    var os = 'Other';
+    if (/Windows NT/.test(ua)) os = 'Windows';
+    else if (/Mac OS X/.test(ua)) os = 'macOS';
+    else if (/Android/.test(ua)) os = 'Android';
+    else if (/iPhone|iPad|iPod/.test(ua)) os = 'iOS';
+    else if (/Linux/.test(ua)) os = 'Linux';
+    return { browser: browser, os: os };
+  }
+  var UA = parseUA();
+
+  async function api(path, body, opts){
+    var init = {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body||{})
+    };
+    if (opts && opts.keepalive) init.keepalive = true;
+    var res = await fetch(CFG.apiBase + '/api/public/widget/' + path, init);
+    if (!res.ok) {
+      var err = new Error('http ' + res.status);
+      try { err.body = await res.json(); } catch(e){}
+      throw err;
+    }
     return res.json();
   }
 
@@ -77,7 +108,15 @@ const WIDGET_JS = `(function(){
     '.human-btn{background:transparent;border:1px solid #e5e7eb;color:#374151;border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer;align-self:center}',
     '.human-btn:hover{background:#f3f4f6}',
     '.human-btn.active{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}',
-    '.brand-foot{text-align:center;font-size:10px;color:#9ca3af;padding:4px}'
+    '.brand-foot{text-align:center;font-size:10px;color:#9ca3af;padding:4px}',
+    '.gate{padding:18px;display:flex;flex-direction:column;gap:10px}',
+    '.gate h4{margin:0;font-size:15px;color:#111827;font-weight:600}',
+    '.gate p{margin:0;font-size:13px;color:#4b5563;line-height:1.45}',
+    '.gate input{border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;font-size:14px;outline:none;font-family:inherit}',
+    '.gate input:focus{border-color:'+CFG.color+'}',
+    '.gate button{background:'+CFG.color+';color:#fff;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600;font-size:14px}',
+    '.gate button:disabled{opacity:.6;cursor:not-allowed}',
+    '.gate .err{color:#dc2626;font-size:12px}'
   ].join('');
   shadow.appendChild(style);
 
@@ -86,7 +125,14 @@ const WIDGET_JS = `(function(){
   panel.innerHTML = [
     '<div class="hdr"><div><h3>'+escapeHtml(CFG.brand)+'</h3><div class="sub" data-sub>Online</div></div><button data-close aria-label="Close">×</button></div>',
     '<div class="body" data-body></div>',
-    '<div class="foot">',
+    '<div class="gate" data-gate style="display:none">',
+    '  <h4>Before we chat 👋</h4>',
+    '  <p>So we can reach you and assist better.</p>',
+    '  <input type="email" data-email placeholder="you@example.com" autocomplete="email" />',
+    '  <div class="err" data-gate-err style="display:none"></div>',
+    '  <button data-start>Start chat</button>',
+    '</div>',
+    '<div class="foot" data-foot>',
     '  <button class="human-btn" data-human>Talk to a human</button>',
     '  <div class="row"><textarea data-input rows="1" placeholder="Type a message…"></textarea><button class="send" data-send>Send</button></div>',
     '  <div class="brand-foot">Powered by AI</div>',
@@ -106,8 +152,19 @@ const WIDGET_JS = `(function(){
   var $human = panel.querySelector('[data-human]');
   var $close = panel.querySelector('[data-close]');
   var $sub = panel.querySelector('[data-sub]');
+  var $gate = panel.querySelector('[data-gate]');
+  var $foot = panel.querySelector('[data-foot]');
+  var $email = panel.querySelector('[data-email]');
+  var $start = panel.querySelector('[data-start]');
+  var $gateErr = panel.querySelector('[data-gate-err]');
 
   function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+
+  function showGate(show){
+    $gate.style.display = show ? 'flex' : 'none';
+    $foot.style.display = show ? 'none' : 'flex';
+  }
+
   function render(){
     $body.innerHTML = '';
     state.msgs.forEach(function(m){
@@ -127,9 +184,11 @@ const WIDGET_JS = `(function(){
       $human.classList.remove('active'); $human.textContent='Talk to a human';
       $sub.textContent='Online';
     }
+    showGate(state.requiresEmail);
   }
 
   async function init(){
+    if (state.initialized) return;
     try {
       var data = await api('init', {
         visitor_id: state.vid || undefined,
@@ -137,20 +196,56 @@ const WIDGET_JS = `(function(){
         fingerprint: fingerprint(),
         site_origin: location.origin,
         page_url: location.href,
+        page_title: document.title,
         user_agent: navigator.userAgent,
-        referrer: document.referrer || undefined
+        referrer: document.referrer || undefined,
+        browser: UA.browser,
+        os: UA.os
       });
       state.vid = data.visitor_id; setLS(LS_VID, state.vid);
       state.vtok = data.visitor_token; setLS(LS_VTOK, state.vtok);
       state.cid = data.conversation_id; setLS(LS_CID, state.cid);
       state.msgs = data.messages || [];
       state.status = data.status;
+      state.requiresEmail = !!data.requires_email;
+      if (data.visitor_email) { state.email = data.visitor_email; setLS(LS_EMAIL, state.email); }
       if (state.msgs.length === 0 && (CFG.greeting || data.greeting)) {
         state.msgs.push({ role:'assistant', content: CFG.greeting || data.greeting });
       }
       if (state.msgs.length > 0) state.lastSince = state.msgs[state.msgs.length-1].created_at || null;
+      state.initialized = true;
       render();
+      startPresence();
     } catch(e){ console.error('chat init failed', e); }
+  }
+
+  // ---- Presence ----
+  var lastPageUrl = location.href;
+  async function ping(recordView){
+    if (!state.vid || !state.vtok) return;
+    try {
+      await api('presence', {
+        visitor_id: state.vid,
+        visitor_token: state.vtok,
+        page_url: location.href,
+        page_title: document.title,
+        referrer: document.referrer || undefined,
+        record_view: !!recordView
+      }, { keepalive: true });
+    } catch(e){}
+  }
+  function startPresence(){
+    // Heartbeat every 25s while visible
+    setInterval(function(){ if (document.visibilityState === 'visible') ping(false); }, 25000);
+    // SPA nav detection
+    var _push = history.pushState; var _replace = history.replaceState;
+    function navHandler(){
+      if (location.href !== lastPageUrl) { lastPageUrl = location.href; ping(true); }
+    }
+    history.pushState = function(){ var r = _push.apply(this, arguments); setTimeout(navHandler,0); return r; };
+    history.replaceState = function(){ var r = _replace.apply(this, arguments); setTimeout(navHandler,0); return r; };
+    window.addEventListener('popstate', navHandler);
+    window.addEventListener('pagehide', function(){ ping(false); });
   }
 
   async function poll(){
@@ -169,9 +264,33 @@ const WIDGET_JS = `(function(){
   }
   setInterval(poll, 4000);
 
+  function validEmail(e){ return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(e); }
+
+  async function submitEmail(){
+    var v = ($email.value || '').trim();
+    if (!validEmail(v)) {
+      $gateErr.textContent = 'Please enter a valid email.';
+      $gateErr.style.display = 'block';
+      return;
+    }
+    $gateErr.style.display = 'none';
+    $start.disabled = true;
+    try {
+      await api('identify', { visitor_id: state.vid, visitor_token: state.vtok, email: v });
+      state.email = v; setLS(LS_EMAIL, v);
+      state.requiresEmail = false;
+      render();
+      setTimeout(function(){ $input && $input.focus(); }, 50);
+    } catch(e){
+      $gateErr.textContent = 'Could not save email. Try again.';
+      $gateErr.style.display = 'block';
+    } finally { $start.disabled = false; }
+  }
+
   async function send(){
     var text = $input.value.trim();
     if (!text || state.sending) return;
+    if (state.requiresEmail) { return; }
     state.msgs.push({ role:'visitor', content:text, created_at:new Date().toISOString() });
     state.lastSince = new Date().toISOString();
     $input.value=''; state.sending = true; render();
@@ -188,12 +307,18 @@ const WIDGET_JS = `(function(){
         if (data.system_note) state.msgs.push({ role:'system', content:data.system_note });
       }
     } catch(e){
-      state.msgs.push({ role:'system', content:'Could not send. Check your connection.' });
+      if (e && e.body && e.body.requires_email) {
+        state.requiresEmail = true;
+        state.msgs.pop();
+      } else {
+        state.msgs.push({ role:'system', content:'Could not send. Check your connection.' });
+      }
     } finally { state.sending = false; render(); }
   }
 
   async function requestHuman(){
     if (!state.cid) return;
+    if (state.requiresEmail) return;
     try {
       var data = await api('request-human', {
         visitor_id: state.vid, visitor_token: state.vtok, conversation_id: state.cid
@@ -208,12 +333,14 @@ const WIDGET_JS = `(function(){
     state.open = !state.open;
     panel.classList.toggle('open', state.open);
     bubble.style.display = state.open ? 'none' : 'flex';
-    if (state.open && !state.vid) init();
+    if (state.open && !state.initialized) init();
   });
   $close.addEventListener('click', function(){ state.open=false; panel.classList.remove('open'); bubble.style.display='flex'; });
   $send.addEventListener('click', send);
   $input.addEventListener('keydown', function(e){ if (e.key==='Enter' && !e.shiftKey){ e.preventDefault(); send(); } });
   $human.addEventListener('click', requestHuman);
+  $start.addEventListener('click', submitEmail);
+  $email.addEventListener('keydown', function(e){ if (e.key==='Enter'){ e.preventDefault(); submitEmail(); } });
 
   // Lazy init when page is idle so we don't slow first paint
   if ('requestIdleCallback' in window) requestIdleCallback(init, { timeout: 3000 });

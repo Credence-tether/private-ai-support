@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate, useParams } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,12 +9,13 @@ import {
   sendReply,
   updateConversationStatus,
   markRead,
+  listLiveVisitors,
+  listVisitorPageViews,
 } from "@/lib/operator.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import {
   MessageSquare,
@@ -26,6 +27,12 @@ import {
   XCircle,
   Bot,
   Inbox,
+  Eye,
+  Globe,
+  MapPin,
+  Monitor,
+  Mail,
+  Link2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { EnableNotifications } from "@/components/EnableNotifications";
@@ -34,6 +41,23 @@ export const Route = createFileRoute("/_authenticated/inbox")({
   component: Dashboard,
 });
 
+type Visitor = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  ip_country: string | null;
+  ip_city: string | null;
+  ip_region: string | null;
+  browser: string | null;
+  os: string | null;
+  current_page_url: string | null;
+  current_page_title: string | null;
+  user_agent?: string | null;
+  referrer: string | null;
+  last_seen_at?: string;
+  created_at?: string;
+};
+
 type ConversationRow = {
   id: string;
   status: "bot" | "pending_human" | "human" | "closed";
@@ -41,13 +65,32 @@ type ConversationRow = {
   last_message_at: string;
   page_url: string | null;
   site_origin: string | null;
-  visitor: { id: string; name: string | null; email: string | null; ip_country: string | null } | null;
+  visitor: Visitor | null;
 };
+
+function flagEmoji(country?: string | null): string {
+  if (!country || country.length !== 2) return "🌐";
+  const A = 0x1f1e6;
+  return String.fromCodePoint(
+    A + country.toUpperCase().charCodeAt(0) - 65,
+    A + country.toUpperCase().charCodeAt(1) - 65,
+  );
+}
+function shortUrl(u?: string | null): string {
+  if (!u) return "—";
+  try {
+    const x = new URL(u);
+    return (x.host + x.pathname).replace(/\/$/, "") || x.host;
+  } catch {
+    return u.slice(0, 40);
+  }
+}
 
 function Dashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const fetchConversations = useServerFn(listConversations);
+  const fetchLive = useServerFn(listLiveVisitors);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -55,6 +98,12 @@ function Dashboard() {
     queryKey: ["conversations"],
     queryFn: () => fetchConversations(),
     refetchOnWindowFocus: true,
+  });
+
+  const liveQuery = useQuery({
+    queryKey: ["live-visitors"],
+    queryFn: () => fetchLive(),
+    refetchInterval: 15000,
   });
 
   // Live updates via realtime — refetch list & active conv on change
@@ -75,6 +124,14 @@ function Dashboard() {
           queryClient.invalidateQueries({ queryKey: ["conversation", convId] });
         },
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "visitors" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["live-visitors"] });
+          queryClient.invalidateQueries({ queryKey: ["conversations"] });
+        },
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -82,8 +139,8 @@ function Dashboard() {
   }, [queryClient]);
 
   const conversations: ConversationRow[] = convsQuery.data?.conversations ?? [];
-  const filtered = conversations;
-  const active = filtered.find((c) => c.id === selectedId) ?? null;
+  const liveVisitors: Visitor[] = liveQuery.data?.visitors ?? [];
+  const active = conversations.find((c) => c.id === selectedId) ?? null;
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -95,18 +152,16 @@ function Dashboard() {
   const counts = {
     pending: conversations.filter((c) => c.status === "pending_human").length,
     open: conversations.filter((c) => c.status === "human").length,
-    bot: conversations.filter((c) => c.status === "bot").length,
   };
 
   return (
     <div className="flex h-screen flex-col bg-background">
-      {/* Topbar */}
       <header className="flex h-14 items-center justify-between border-b px-4">
         <div className="flex items-center gap-2">
           <MessageSquare className="h-5 w-5 text-primary" />
           <span className="font-semibold">Support Inbox</span>
           <Badge variant="secondary" className="ml-2 text-xs">
-            {counts.pending} pending · {counts.open} open
+            {counts.pending} pending · {counts.open} open · {liveVisitors.length} live
           </Badge>
         </div>
         <div className="flex items-center gap-2">
@@ -122,22 +177,62 @@ function Dashboard() {
         </div>
       </header>
 
-      <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[320px_1fr]">
-        {/* Conversation list */}
+      <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[320px_1fr_300px]">
+        {/* Left: Live visitors + Conversations */}
         <aside className="overflow-hidden border-r">
           <ScrollArea className="h-full">
+            {/* Live visitors panel */}
+            <div className="border-b bg-muted/30">
+              <div className="flex items-center gap-2 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <Eye className="h-3.5 w-3.5" />
+                Live on site
+                <span className="ml-auto rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-600">
+                  {liveVisitors.length}
+                </span>
+              </div>
+              {liveVisitors.length === 0 && (
+                <p className="px-4 pb-3 text-xs text-muted-foreground">No one browsing right now.</p>
+              )}
+              <ul className="pb-2">
+                {liveVisitors.map((v) => (
+                  <li key={v.id} className="px-4 py-1.5 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                      </span>
+                      <span title={v.ip_country ?? ""}>{flagEmoji(v.ip_country)}</span>
+                      <span className="truncate font-medium">
+                        {v.email || v.name || `#${v.id.slice(0, 6)}`}
+                      </span>
+                      <span className="ml-auto text-[10px] text-muted-foreground">
+                        {v.browser ?? "—"}
+                      </span>
+                    </div>
+                    <div className="ml-5 mt-0.5 truncate text-[11px] text-muted-foreground">
+                      {shortUrl(v.current_page_url)}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Conversations */}
+            <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Conversations
+            </div>
             {convsQuery.isLoading && (
               <p className="p-4 text-sm text-muted-foreground">Loading…</p>
             )}
-            {!convsQuery.isLoading && filtered.length === 0 && (
-              <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center text-muted-foreground">
+            {!convsQuery.isLoading && conversations.length === 0 && (
+              <div className="flex flex-col items-center justify-center gap-2 p-8 text-center text-muted-foreground">
                 <Inbox className="h-10 w-10 opacity-40" />
                 <p className="text-sm">No conversations yet</p>
                 <p className="text-xs">Drop the widget on your site and visitors will appear here.</p>
               </div>
             )}
             <ul>
-              {filtered.map((c) => (
+              {conversations.map((c) => (
                 <li key={c.id}>
                   <button
                     onClick={() => setSelectedId(c.id)}
@@ -147,13 +242,15 @@ function Dashboard() {
                   >
                     <div className="flex w-full items-center justify-between gap-2">
                       <span className="flex items-center gap-1.5 text-sm font-medium">
-                        <UserIcon className="h-3.5 w-3.5 opacity-60" />
-                        {c.visitor?.name || c.visitor?.email || `Visitor ${c.visitor?.id.slice(0, 6)}`}
+                        <span>{flagEmoji(c.visitor?.ip_country)}</span>
+                        <span className="truncate">
+                          {c.visitor?.email || c.visitor?.name || `Visitor ${c.visitor?.id.slice(0, 6)}`}
+                        </span>
                       </span>
                       <StatusBadge status={c.status} />
                     </div>
                     <div className="flex w-full items-center justify-between text-xs text-muted-foreground">
-                      <span className="truncate">{c.page_url ? new URL(c.page_url).pathname : c.site_origin}</span>
+                      <span className="truncate">{shortUrl(c.visitor?.current_page_url ?? c.page_url)}</span>
                       <span>{formatDistanceToNow(new Date(c.last_message_at), { addSuffix: true })}</span>
                     </div>
                     {c.unread_for_operator && (
@@ -166,7 +263,7 @@ function Dashboard() {
           </ScrollArea>
         </aside>
 
-        {/* Active conversation */}
+        {/* Center: Active conversation */}
         <main className="flex flex-col overflow-hidden">
           {active ? (
             <ConversationPane key={active.id} conversation={active} />
@@ -177,6 +274,114 @@ function Dashboard() {
             </div>
           )}
         </main>
+
+        {/* Right: Visitor info sidebar */}
+        <aside className="hidden overflow-hidden border-l md:block">
+          {active?.visitor ? (
+            <VisitorPanel visitor={active.visitor} />
+          ) : (
+            <div className="flex h-full items-center justify-center p-6 text-center text-xs text-muted-foreground">
+              Visitor details appear here.
+            </div>
+          )}
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function VisitorPanel({ visitor }: { visitor: Visitor }) {
+  const fetchViews = useServerFn(listVisitorPageViews);
+  const viewsQuery = useQuery({
+    queryKey: ["visitor-views", visitor.id],
+    queryFn: () => fetchViews({ data: { visitorId: visitor.id } }),
+  });
+  const views = viewsQuery.data?.views ?? [];
+  const loc = [visitor.ip_city, visitor.ip_region, visitor.ip_country].filter(Boolean).join(", ");
+  return (
+    <ScrollArea className="h-full">
+      <div className="space-y-4 p-4 text-sm">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Visitor
+          </p>
+          <p className="mt-1 font-medium">
+            {visitor.email || visitor.name || `#${visitor.id.slice(0, 8)}`}
+          </p>
+        </div>
+        <Field icon={Mail} label="Email" value={visitor.email ?? "Not provided"} />
+        <Field
+          icon={Globe}
+          label="Country"
+          value={
+            <span>
+              {flagEmoji(visitor.ip_country)} {visitor.ip_country ?? "Unknown"}
+            </span>
+          }
+        />
+        <Field icon={MapPin} label="Location" value={loc || "Unknown"} />
+        <Field
+          icon={Monitor}
+          label="Browser"
+          value={`${visitor.browser ?? "Unknown"} · ${visitor.os ?? "Unknown"}`}
+        />
+        <Field icon={Eye} label="Current page" value={shortUrl(visitor.current_page_url)} />
+        <Field icon={Link2} label="Referrer" value={shortUrl(visitor.referrer)} />
+        {visitor.last_seen_at && (
+          <Field
+            icon={Eye}
+            label="Last seen"
+            value={formatDistanceToNow(new Date(visitor.last_seen_at), { addSuffix: true })}
+          />
+        )}
+
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Recent pages
+          </p>
+          {viewsQuery.isLoading && <p className="text-xs text-muted-foreground">Loading…</p>}
+          {!viewsQuery.isLoading && views.length === 0 && (
+            <p className="text-xs text-muted-foreground">No page history yet.</p>
+          )}
+          <ul className="space-y-1.5">
+            {views.map((v: any) => (
+              <li key={v.id} className="text-xs">
+                <a
+                  href={v.page_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block truncate font-medium hover:underline"
+                  title={v.page_url}
+                >
+                  {v.page_title || shortUrl(v.page_url)}
+                </a>
+                <span className="text-muted-foreground">
+                  {formatDistanceToNow(new Date(v.visited_at), { addSuffix: true })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+    </ScrollArea>
+  );
+}
+
+function Field({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start gap-2">
+      <Icon className="mt-0.5 h-3.5 w-3.5 text-muted-foreground" />
+      <div className="min-w-0 flex-1">
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="truncate text-xs">{value}</p>
       </div>
     </div>
   );
@@ -217,14 +422,12 @@ function ConversationPane({ conversation }: { conversation: ConversationRow }) {
     queryFn: () => fetchConv({ data: { conversationId: conversation.id } }),
   });
 
-  // Mark as read on open
   useEffect(() => {
     markReadFn({ data: { conversationId: conversation.id } }).then(() =>
       queryClient.invalidateQueries({ queryKey: ["conversations"] }),
     );
   }, [conversation.id, markReadFn, queryClient]);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -256,12 +459,14 @@ function ConversationPane({ conversation }: { conversation: ConversationRow }) {
   return (
     <>
       <div className="flex items-center justify-between border-b px-4 py-3">
-        <div>
-          <p className="text-sm font-semibold">
-            {visitor?.name || visitor?.email || `Visitor ${visitor?.id?.slice(0, 6)}`}
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">
+            {flagEmoji(visitor?.ip_country)}{" "}
+            {visitor?.email || visitor?.name || `Visitor ${visitor?.id?.slice(0, 6)}`}
           </p>
-          <p className="text-xs text-muted-foreground">
-            {conversation.page_url || conversation.site_origin || "Unknown source"}
+          <p className="truncate text-xs text-muted-foreground">
+            {shortUrl(visitor?.current_page_url ?? conversation.page_url)} ·{" "}
+            {visitor?.browser ?? "Unknown browser"}
           </p>
         </div>
         <div className="flex gap-1">
