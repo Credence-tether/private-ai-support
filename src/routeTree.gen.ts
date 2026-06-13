@@ -16,9 +16,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated.settings'
 import { Route as AuthenticatedInboxRouteImport } from './routes/_authenticated.inbox'
 import { Route as ApiPublicWidgetRequestHumanRouteImport } from './routes/api/public/widget/request-human'
+import { Route as ApiPublicWidgetPresenceRouteImport } from './routes/api/public/widget/presence'
 import { Route as ApiPublicWidgetPollRouteImport } from './routes/api/public/widget/poll'
 import { Route as ApiPublicWidgetMessageRouteImport } from './routes/api/public/widget/message'
 import { Route as ApiPublicWidgetInitRouteImport } from './routes/api/public/widget/init'
+import { Route as ApiPublicWidgetIdentifyRouteImport } from './routes/api/public/widget/identify'
 
 const WidgetDotjsRoute = WidgetDotjsRouteImport.update({
   id: '/widget.js',
@@ -55,6 +57,11 @@ const ApiPublicWidgetRequestHumanRoute =
     path: '/api/public/widget/request-human',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicWidgetPresenceRoute = ApiPublicWidgetPresenceRouteImport.update({
+  id: '/api/public/widget/presence',
+  path: '/api/public/widget/presence',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicWidgetPollRoute = ApiPublicWidgetPollRouteImport.update({
   id: '/api/public/widget/poll',
   path: '/api/public/widget/poll',
@@ -70,6 +77,11 @@ const ApiPublicWidgetInitRoute = ApiPublicWidgetInitRouteImport.update({
   path: '/api/public/widget/init',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicWidgetIdentifyRoute = ApiPublicWidgetIdentifyRouteImport.update({
+  id: '/api/public/widget/identify',
+  path: '/api/public/widget/identify',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -77,9 +89,11 @@ export interface FileRoutesByFullPath {
   '/widget.js': typeof WidgetDotjsRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/api/public/widget/identify': typeof ApiPublicWidgetIdentifyRoute
   '/api/public/widget/init': typeof ApiPublicWidgetInitRoute
   '/api/public/widget/message': typeof ApiPublicWidgetMessageRoute
   '/api/public/widget/poll': typeof ApiPublicWidgetPollRoute
+  '/api/public/widget/presence': typeof ApiPublicWidgetPresenceRoute
   '/api/public/widget/request-human': typeof ApiPublicWidgetRequestHumanRoute
 }
 export interface FileRoutesByTo {
@@ -88,9 +102,11 @@ export interface FileRoutesByTo {
   '/widget.js': typeof WidgetDotjsRoute
   '/inbox': typeof AuthenticatedInboxRoute
   '/settings': typeof AuthenticatedSettingsRoute
+  '/api/public/widget/identify': typeof ApiPublicWidgetIdentifyRoute
   '/api/public/widget/init': typeof ApiPublicWidgetInitRoute
   '/api/public/widget/message': typeof ApiPublicWidgetMessageRoute
   '/api/public/widget/poll': typeof ApiPublicWidgetPollRoute
+  '/api/public/widget/presence': typeof ApiPublicWidgetPresenceRoute
   '/api/public/widget/request-human': typeof ApiPublicWidgetRequestHumanRoute
 }
 export interface FileRoutesById {
@@ -101,9 +117,11 @@ export interface FileRoutesById {
   '/widget.js': typeof WidgetDotjsRoute
   '/_authenticated/inbox': typeof AuthenticatedInboxRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
+  '/api/public/widget/identify': typeof ApiPublicWidgetIdentifyRoute
   '/api/public/widget/init': typeof ApiPublicWidgetInitRoute
   '/api/public/widget/message': typeof ApiPublicWidgetMessageRoute
   '/api/public/widget/poll': typeof ApiPublicWidgetPollRoute
+  '/api/public/widget/presence': typeof ApiPublicWidgetPresenceRoute
   '/api/public/widget/request-human': typeof ApiPublicWidgetRequestHumanRoute
 }
 export interface FileRouteTypes {
@@ -114,9 +132,11 @@ export interface FileRouteTypes {
     | '/widget.js'
     | '/inbox'
     | '/settings'
+    | '/api/public/widget/identify'
     | '/api/public/widget/init'
     | '/api/public/widget/message'
     | '/api/public/widget/poll'
+    | '/api/public/widget/presence'
     | '/api/public/widget/request-human'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -125,9 +145,11 @@ export interface FileRouteTypes {
     | '/widget.js'
     | '/inbox'
     | '/settings'
+    | '/api/public/widget/identify'
     | '/api/public/widget/init'
     | '/api/public/widget/message'
     | '/api/public/widget/poll'
+    | '/api/public/widget/presence'
     | '/api/public/widget/request-human'
   id:
     | '__root__'
@@ -137,9 +159,11 @@ export interface FileRouteTypes {
     | '/widget.js'
     | '/_authenticated/inbox'
     | '/_authenticated/settings'
+    | '/api/public/widget/identify'
     | '/api/public/widget/init'
     | '/api/public/widget/message'
     | '/api/public/widget/poll'
+    | '/api/public/widget/presence'
     | '/api/public/widget/request-human'
   fileRoutesById: FileRoutesById
 }
@@ -148,9 +172,11 @@ export interface RootRouteChildren {
   AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   AuthRoute: typeof AuthRoute
   WidgetDotjsRoute: typeof WidgetDotjsRoute
+  ApiPublicWidgetIdentifyRoute: typeof ApiPublicWidgetIdentifyRoute
   ApiPublicWidgetInitRoute: typeof ApiPublicWidgetInitRoute
   ApiPublicWidgetMessageRoute: typeof ApiPublicWidgetMessageRoute
   ApiPublicWidgetPollRoute: typeof ApiPublicWidgetPollRoute
+  ApiPublicWidgetPresenceRoute: typeof ApiPublicWidgetPresenceRoute
   ApiPublicWidgetRequestHumanRoute: typeof ApiPublicWidgetRequestHumanRoute
 }
 
@@ -205,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWidgetRequestHumanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/widget/presence': {
+      id: '/api/public/widget/presence'
+      path: '/api/public/widget/presence'
+      fullPath: '/api/public/widget/presence'
+      preLoaderRoute: typeof ApiPublicWidgetPresenceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/widget/poll': {
       id: '/api/public/widget/poll'
       path: '/api/public/widget/poll'
@@ -224,6 +257,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/widget/init'
       fullPath: '/api/public/widget/init'
       preLoaderRoute: typeof ApiPublicWidgetInitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/widget/identify': {
+      id: '/api/public/widget/identify'
+      path: '/api/public/widget/identify'
+      fullPath: '/api/public/widget/identify'
+      preLoaderRoute: typeof ApiPublicWidgetIdentifyRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -248,21 +288,13 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRoute: AuthenticatedRouteWithChildren,
   AuthRoute: AuthRoute,
   WidgetDotjsRoute: WidgetDotjsRoute,
+  ApiPublicWidgetIdentifyRoute: ApiPublicWidgetIdentifyRoute,
   ApiPublicWidgetInitRoute: ApiPublicWidgetInitRoute,
   ApiPublicWidgetMessageRoute: ApiPublicWidgetMessageRoute,
   ApiPublicWidgetPollRoute: ApiPublicWidgetPollRoute,
+  ApiPublicWidgetPresenceRoute: ApiPublicWidgetPresenceRoute,
   ApiPublicWidgetRequestHumanRoute: ApiPublicWidgetRequestHumanRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

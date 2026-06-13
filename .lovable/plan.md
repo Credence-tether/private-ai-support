@@ -1,121 +1,71 @@
-# Custom Live Support — Plan
 
-A self-hosted live chat system for your existing website. Three parts ship from this Lovable project:
+## What we're adding
 
-1. **Backend + database** (Lovable Cloud) — stores conversations, messages, visitors.
-2. **Operator Dashboard** (this app, installable as a PWA) — your inbox where you read & reply, with push notifications to your phone.
-3. **Embeddable widget** (`widget.js`) — a single `<script>` tag you drop into your existing website. Visitors chat with Groq AI; "Talk to Human" hands the conversation to you.
-
----
-
-## What you need to provide
-
-Only one thing now: **your Groq API key** (I'll store it as a secret). Lovable Cloud, Web Push keys (VAPID), and everything else I generate. No zip needed — we're building fresh, then you swap the embed snippet on your site.
-
-Optional: the domain(s) of your website so I can lock CORS to them.
+1. **Live visitor context for you (the agent)** — for every conversation, see:
+   - The page the visitor is currently on (updates as they navigate)
+   - Their IP country + city (derived server-side from request headers)
+   - Their browser + OS (parsed from user agent)
+   - Their referrer and time on site
+2. **Pre-chat email gate** — before the visitor can send their first message, the widget asks for their email with the line: *"So we can reach you and assist better."*
 
 ---
 
-## User flows
+## 1. Visitor presence & navigation tracking
 
-**Visitor on your site**
-- Opens widget → AI (Groq) answers instantly.
-- Taps **Talk to Human** → conversation flagged `pending_human`, you get a push notification on your phone, AI stops replying.
-- You reply from the dashboard → visitor sees your messages live.
+### Widget side (`/widget.js`)
+- On every page load (and on SPA `history.pushState` / `popstate`), send a lightweight `presence` ping to a new endpoint `/api/public/widget/presence` with: `visitor_id`, `visitor_token`, `page_url`, `page_title`, `referrer`.
+- Heartbeat every 25s while the tab is visible so you can see who's *currently* on the site, not just who messaged.
+- Parse browser + OS client-side from `navigator.userAgent` and include it once on `init`.
 
-**You (operator)**
-- Install the dashboard as a PWA on your phone (Add to Home Screen).
-- Allow notifications once.
-- Push arrives the moment a visitor opens chat or hits Talk to Human (configurable).
-- Tap notification → opens the conversation, you reply, assign to yourself, or close it.
+### Server side
+- New endpoint `src/routes/api/public/widget/presence.ts` — validates visitor token, updates `visitors.last_seen_at`, `visitors.current_page_url`, `visitors.current_page_title`, and inserts a row into a new `visitor_page_views` table (page_url, title, visited_at).
+- On `init` and `presence`, read Cloudflare geo headers (`cf-ipcountry`, `cf-ipcity`, `cf-region`) and store onto `visitors` (`ip_country`, `ip_city`, `ip_region`, `browser`, `os`).
 
----
+### Dashboard side (`_authenticated.inbox.tsx`)
+- New **"Live visitors"** panel above the conversation list showing everyone seen in the last 2 minutes (even without a message yet), with: country flag, city, browser, current page, time on site.
+- In the conversation detail pane, add a **Visitor info** sidebar card showing the same fields + recent page history (last 10 pages from `visitor_page_views`).
+- Use Supabase Realtime on `visitors` and `visitor_page_views` so it updates live.
 
-## Architecture
-
-```text
-[Your website] ──<script src="widget.js">──┐
-                                            │  (chat events, REST + realtime)
-                                            ▼
-                              [Lovable Cloud: Postgres + Realtime + Auth]
-                                            ▲
-                                            │  (server functions: Groq calls, push send)
-                                            ▼
-                              [Operator Dashboard PWA — only you log in]
-                                            │
-                                            ▼
-                                  [Web Push → your phone]
+### Schema changes (migration)
+```
+ALTER TABLE visitors ADD COLUMN ip_city text, ip_region text, browser text, os text,
+  current_page_url text, current_page_title text, email text;
+CREATE TABLE visitor_page_views (id, visitor_id, page_url, page_title, referrer, visited_at);
+-- + GRANTs + RLS (operator-only read), + add both tables to supabase_realtime publication
 ```
 
-## Technical details
+---
 
-**Database tables**
-- `conversations` (id, visitor_id, status: `bot|pending_human|human|closed`, assigned_to, site_origin, started_at, last_message_at)
-- `messages` (id, conversation_id, role: `visitor|assistant|operator|system`, content, created_at)
-- `visitors` (id, fingerprint, name?, email?, user_agent, ip_country, referrer)
-- `push_subscriptions` (id, user_id, endpoint, p256dh, auth)
-- `operator_settings` (notify_on_visit, notify_on_human_request, away_message)
+## 2. Pre-chat email gate
 
-RLS: visitors access only their own conversation via a signed visitor token (stored in widget localStorage). Operator (you) reads all via authenticated session + `has_role('operator')`.
+### Widget UX
+- First time the visitor opens the chat (no `email` stored on their visitor record), show a small form **instead of** the message composer:
+  - One email input (validated, required)
+  - Caption underneath: *"So we can reach you and assist better."*
+  - Single **"Start chat"** button
+- After submit, the composer appears and the AI greeting is shown. Email is remembered in localStorage + on the visitor record, so returning visitors skip the form.
+- Keeps the form to one field on purpose to avoid friction — exactly as you asked.
 
-**Server functions (TanStack Start `createServerFn` + a public route for the widget)**
-- `POST /api/public/widget/message` — visitor sends message; if status=`bot`, stream Groq reply back; persist both.
-- `POST /api/public/widget/request-human` — flip status, trigger push.
-- `POST /api/public/widget/init` — issue visitor token, create conversation.
-- `operator.reply`, `operator.assign`, `operator.close` — authed server fns.
-- `push.subscribe`, `push.send` — VAPID web-push (using `web-push` npm package).
+### Server
+- New endpoint `/api/public/widget/identify` accepts `{ email }`, writes to `visitors.email`, returns ok.
+- `message` endpoint rejects with `requires_email: true` if visitor has no email yet, as a safety net.
 
-**Groq integration**
-- Server-side only. Key stored as `GROQ_API_KEY` secret.
-- Default model: `llama-3.3-70b-versatile` (you can change). System prompt configurable in operator settings.
-- Detects "talk to human / agent / person / real" intents → auto-flips conversation to `pending_human`.
-
-**Operator dashboard (this app)**
-- Auth: Lovable Cloud email/password, single user (you).
-- Inbox: conversation list with unread badges, live updates via Supabase Realtime.
-- Conversation view: message thread, composer, status controls (Assign to me, Close, Reopen, Block visitor).
-- Settings: Groq system prompt, notification rules, away message, install-as-PWA prompt, push permission button.
-- PWA: manifest + service worker (firebase-messaging-style web-push worker for background notifications).
-
-**Widget (`/widget.js` served from this app)**
-- Vanilla JS, ~15KB, no framework. Shadow DOM to avoid CSS clashes with your site.
-- Floating bubble → expands to chat panel. Theming via `data-*` attributes on the script tag (color, position, greeting).
-- Reconnects on tab focus; persists `visitor_token` in localStorage so returning visitors resume their thread.
-- Embed snippet:
-  ```html
-  <script src="https://your-app.lovable.app/widget.js"
-          data-site="yourdomain.com"
-          data-color="#0ea5e9"
-          data-greeting="Hi! How can we help?"
-          defer></script>
-  ```
-
-**Push notifications**
-- Web Push via VAPID (works on Android Chrome, desktop Chrome/Edge/Firefox, and iOS 16.4+ after installing the PWA to home screen — this is an iOS platform requirement, not a limitation we can bypass).
-- Notification payload: visitor preview text + deep link to the conversation in the dashboard.
-- Triggers: new visitor message while you're not active in that conversation, and always on `request_human`.
+### Dashboard
+- Visitor's email shows in the conversation header and live-visitors panel, and is included in push notifications ("New chat from jane@acme.com — Pricing page").
 
 ---
 
-## Build order
-
-1. Enable Lovable Cloud, create schema + RLS, seed your operator account.
-2. Add `GROQ_API_KEY` secret (I'll prompt you).
-3. Operator dashboard shell + auth + inbox + conversation view + realtime.
-4. Public widget endpoints + Groq streaming + human-handoff logic.
-5. `widget.js` build (Vite library mode, output to `public/widget.js`).
-6. PWA manifest + service worker + VAPID push subscribe/send.
-7. Settings page + system-prompt editor + push test button.
-8. Give you the final embed snippet + install instructions for the PWA.
+## Technical notes
+- IP/country: read from request headers in the server route handler — no third-party geo API needed on Lovable Cloud.
+- Browser/OS parsing: tiny inline regex in widget (no `ua-parser-js` dependency) to keep widget < 10 KB.
+- Presence pings are POST with `keepalive: true` so they survive page unloads.
+- All new endpoints stay under `/api/public/widget/*` (no auth, validated visitor token).
+- No business-logic changes to existing AI/human handoff flow.
 
 ---
 
-## Out of scope (ask if you want them added)
+## Files touched
+- **New**: `src/routes/api/public/widget/presence.ts`, `src/routes/api/public/widget/identify.ts`, migration for `visitors` columns + `visitor_page_views` + realtime.
+- **Edited**: `src/routes/widget[.]js.ts` (email gate + presence + UA parsing), `src/routes/api/public/widget/init.ts` + `message.ts` (geo headers, email check), `src/lib/operator.functions.ts` (live visitors query, page history query), `src/routes/_authenticated.inbox.tsx` (Live visitors panel + Visitor info card), `src/lib/notify.server.ts` (include email + page in push title).
 
-- Multi-agent / team routing (you chose just-you).
-- SMS/WhatsApp/Telegram fallback notifications (you chose Web Push).
-- File/image uploads in chat.
-- Visitor email transcripts.
-- Analytics dashboard (volume, response time, CSAT).
-
-When you approve, I'll switch to build mode, enable Cloud, and ask for your Groq key at the right step.
+Confirm and I'll build it.

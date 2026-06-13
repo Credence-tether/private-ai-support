@@ -20,12 +20,48 @@ export const listConversations = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("conversations")
       .select(
-        "id, status, assigned_to, unread_for_operator, last_message_at, started_at, page_url, site_origin, visitor:visitors(id, name, email, ip_country, user_agent, referrer)",
+        "id, status, assigned_to, unread_for_operator, last_message_at, started_at, page_url, site_origin, visitor:visitors(id, name, email, ip_country, ip_city, ip_region, browser, os, current_page_url, current_page_title, user_agent, referrer)",
       )
       .order("last_message_at", { ascending: false })
       .limit(100);
     if (error) throw new Error(error.message);
     return { conversations: data ?? [] };
+  });
+
+// Visitors active in the last N minutes — even without a conversation
+export const listLiveVisitors = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await assertOperator(context.supabase, context.userId);
+    const since = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+    const { data, error } = await context.supabase
+      .from("visitors")
+      .select(
+        "id, name, email, ip_country, ip_city, ip_region, browser, os, current_page_url, current_page_title, referrer, last_seen_at, created_at",
+      )
+      .gte("last_seen_at", since)
+      .eq("blocked", false)
+      .order("last_seen_at", { ascending: false })
+      .limit(50);
+    if (error) throw new Error(error.message);
+    return { visitors: data ?? [] };
+  });
+
+export const listVisitorPageViews = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ visitorId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertOperator(context.supabase, context.userId);
+    const { data: views, error } = await context.supabase
+      .from("visitor_page_views")
+      .select("id, page_url, page_title, referrer, visited_at")
+      .eq("visitor_id", data.visitorId)
+      .order("visited_at", { ascending: false })
+      .limit(15);
+    if (error) throw new Error(error.message);
+    return { views: views ?? [] };
   });
 
 export const getConversation = createServerFn({ method: "POST" })
@@ -39,7 +75,7 @@ export const getConversation = createServerFn({ method: "POST" })
       context.supabase
         .from("conversations")
         .select(
-          "id, status, assigned_to, unread_for_operator, last_message_at, started_at, page_url, site_origin, visitor:visitors(id, name, email, ip_country, user_agent, referrer, fingerprint, last_seen_at)",
+          "id, status, assigned_to, unread_for_operator, last_message_at, started_at, page_url, site_origin, visitor:visitors(id, name, email, ip_country, ip_city, ip_region, browser, os, current_page_url, current_page_title, user_agent, referrer, fingerprint, last_seen_at, created_at)",
         )
         .eq("id", data.conversationId)
         .single(),

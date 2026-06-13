@@ -11,8 +11,11 @@ const BodySchema = z.object({
   fingerprint: z.string().max(120).optional(),
   site_origin: z.string().max(300).optional(),
   page_url: z.string().max(2000).optional(),
+  page_title: z.string().max(500).optional(),
   user_agent: z.string().max(500).optional(),
   referrer: z.string().max(2000).optional(),
+  browser: z.string().max(80).optional(),
+  os: z.string().max(80).optional(),
   name: z.string().max(120).optional(),
   email: z.string().email().max(200).optional(),
 });
@@ -33,6 +36,12 @@ export const Route = createFileRoute("/api/public/widget/init")({
           "@/lib/visitor-auth.server"
         );
         const { notifyOperators } = await import("@/lib/notify.server");
+
+        // Geo headers from edge (Cloudflare-style)
+        const headers = request.headers;
+        const ipCountry = headers.get("cf-ipcountry") || undefined;
+        const ipCity = headers.get("cf-ipcity") || undefined;
+        const ipRegion = headers.get("cf-region") || undefined;
 
         let visitorId = body.visitor_id;
         const isReturning =
@@ -64,6 +73,13 @@ export const Route = createFileRoute("/api/public/widget/init")({
               user_agent: body.user_agent ?? undefined,
               referrer: body.referrer ?? undefined,
               site_origin: body.site_origin ?? undefined,
+              current_page_url: body.page_url ?? undefined,
+              current_page_title: body.page_title ?? undefined,
+              ...(body.browser ? { browser: body.browser } : {}),
+              ...(body.os ? { os: body.os } : {}),
+              ...(ipCountry ? { ip_country: ipCountry } : {}),
+              ...(ipCity ? { ip_city: ipCity } : {}),
+              ...(ipRegion ? { ip_region: ipRegion } : {}),
               ...(body.name ? { name: body.name } : {}),
               ...(body.email ? { email: body.email } : {}),
             })
@@ -76,6 +92,13 @@ export const Route = createFileRoute("/api/public/widget/init")({
               user_agent: body.user_agent ?? null,
               referrer: body.referrer ?? null,
               site_origin: body.site_origin ?? null,
+              current_page_url: body.page_url ?? null,
+              current_page_title: body.page_title ?? null,
+              browser: body.browser ?? null,
+              os: body.os ?? null,
+              ip_country: ipCountry ?? null,
+              ip_city: ipCity ?? null,
+              ip_region: ipRegion ?? null,
               name: body.name ?? null,
               email: body.email ?? null,
             })
@@ -85,15 +108,26 @@ export const Route = createFileRoute("/api/public/widget/init")({
           visitorId = newV.id;
         }
 
-        // Block check
+        // Log this page view
+        if (body.page_url && visitorId) {
+          await supabaseAdmin.from("visitor_page_views").insert({
+            visitor_id: visitorId,
+            page_url: body.page_url,
+            page_title: body.page_title ?? null,
+            referrer: body.referrer ?? null,
+          });
+        }
+
+        // Block check + fetch email status for pre-chat gate
         const { data: visitor } = await supabaseAdmin
           .from("visitors")
-          .select("blocked")
+          .select("blocked, email")
           .eq("id", visitorId!)
           .single();
         if (visitor?.blocked) {
           return jsonCors({ error: "Blocked" }, { status: 403 });
         }
+        const hasEmail = !!visitor?.email;
 
         // Find an open conversation (bot/pending_human/human), else create new
         const { data: existingConv } = await supabaseAdmin
@@ -139,10 +173,12 @@ export const Route = createFileRoute("/api/public/widget/init")({
 
         // Fire notification on new conversation
         if (isNew) {
+          const who = visitor?.email ?? "Anonymous visitor";
+          const where = body.page_url ? ` on ${shortenUrl(body.page_url)}` : "";
           notifyOperators(supabaseAdmin, {
             trigger: "new_conversation",
-            title: "New visitor",
-            body: `Someone just opened chat${body.page_url ? ` on ${shortenUrl(body.page_url)}` : ""}.`,
+            title: `New visitor — ${who}`,
+            body: `Just opened chat${where}.`,
             url: `/c/${conversationId}`,
             tag: `conv-${conversationId}`,
           }).catch((e) => console.error("notify error", e));
@@ -157,6 +193,8 @@ export const Route = createFileRoute("/api/public/widget/init")({
           brand_color: settings?.brand_color ?? "#0ea5e9",
           brand_name: settings?.brand_name ?? "Support",
           messages: msgs ?? [],
+          requires_email: !hasEmail,
+          visitor_email: visitor?.email ?? null,
         });
       },
     },

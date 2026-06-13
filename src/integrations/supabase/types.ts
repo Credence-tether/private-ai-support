@@ -207,42 +207,95 @@ export type Database = {
         }
         Relationships: []
       }
+      visitor_page_views: {
+        Row: {
+          id: string
+          page_title: string | null
+          page_url: string
+          referrer: string | null
+          visited_at: string
+          visitor_id: string
+        }
+        Insert: {
+          id?: string
+          page_title?: string | null
+          page_url: string
+          referrer?: string | null
+          visited_at?: string
+          visitor_id: string
+        }
+        Update: {
+          id?: string
+          page_title?: string | null
+          page_url?: string
+          referrer?: string | null
+          visited_at?: string
+          visitor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitor_page_views_visitor_id_fkey"
+            columns: ["visitor_id"]
+            isOneToOne: false
+            referencedRelation: "visitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visitors: {
         Row: {
           blocked: boolean
+          browser: string | null
           created_at: string
+          current_page_title: string | null
+          current_page_url: string | null
           email: string | null
           fingerprint: string | null
           id: string
+          ip_city: string | null
           ip_country: string | null
+          ip_region: string | null
           last_seen_at: string
           name: string | null
+          os: string | null
           referrer: string | null
           site_origin: string | null
           user_agent: string | null
         }
         Insert: {
           blocked?: boolean
+          browser?: string | null
           created_at?: string
+          current_page_title?: string | null
+          current_page_url?: string | null
           email?: string | null
           fingerprint?: string | null
           id?: string
+          ip_city?: string | null
           ip_country?: string | null
+          ip_region?: string | null
           last_seen_at?: string
           name?: string | null
+          os?: string | null
           referrer?: string | null
           site_origin?: string | null
           user_agent?: string | null
         }
         Update: {
           blocked?: boolean
+          browser?: string | null
           created_at?: string
+          current_page_title?: string | null
+          current_page_url?: string | null
           email?: string | null
           fingerprint?: string | null
           id?: string
+          ip_city?: string | null
           ip_country?: string | null
+          ip_region?: string | null
           last_seen_at?: string
           name?: string | null
+          os?: string | null
           referrer?: string | null
           site_origin?: string | null
           user_agent?: string | null
