@@ -157,7 +157,7 @@ export const Route = createFileRoute("/api/public/widget/message")({
         // Visitor-message notification (configurable per operator settings)
         notifyOperators(supabaseAdmin, {
           trigger: "visitor_message",
-          title: "Visitor message",
+          title: `Message from ${vis.email}`,
           body: body.content.slice(0, 140),
           url: `/c/${conv.id}`,
           tag: `conv-${conv.id}`,
