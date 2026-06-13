@@ -173,10 +173,12 @@ export const Route = createFileRoute("/api/public/widget/init")({
 
         // Fire notification on new conversation
         if (isNew) {
+          const who = visitor?.email ?? "Anonymous visitor";
+          const where = body.page_url ? ` on ${shortenUrl(body.page_url)}` : "";
           notifyOperators(supabaseAdmin, {
             trigger: "new_conversation",
-            title: "New visitor",
-            body: `Someone just opened chat${body.page_url ? ` on ${shortenUrl(body.page_url)}` : ""}.`,
+            title: `New visitor — ${who}`,
+            body: `Just opened chat${where}.`,
             url: `/c/${conversationId}`,
             tag: `conv-${conversationId}`,
           }).catch((e) => console.error("notify error", e));
