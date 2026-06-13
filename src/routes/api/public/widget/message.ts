@@ -30,17 +30,27 @@ export const Route = createFileRoute("/api/public/widget/message")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { notifyOperators } = await import("@/lib/notify.server");
 
-        // Verify conversation belongs to visitor
-        const { data: conv } = await supabaseAdmin
-          .from("conversations")
-          .select("id, status, visitor_id")
-          .eq("id", body.conversation_id)
-          .single();
+        // Verify conversation belongs to visitor + visitor identified
+        const [{ data: conv }, { data: vis }] = await Promise.all([
+          supabaseAdmin
+            .from("conversations")
+            .select("id, status, visitor_id, page_url")
+            .eq("id", body.conversation_id)
+            .single(),
+          supabaseAdmin
+            .from("visitors")
+            .select("email, current_page_url")
+            .eq("id", body.visitor_id)
+            .single(),
+        ]);
         if (!conv || conv.visitor_id !== body.visitor_id) {
           return jsonCors({ error: "Conversation not found" }, { status: 404 });
         }
         if (conv.status === "closed") {
           return jsonCors({ error: "Conversation closed" }, { status: 409 });
+        }
+        if (!vis?.email) {
+          return jsonCors({ error: "Email required", requires_email: true }, { status: 412 });
         }
 
         // Insert visitor message
@@ -83,7 +93,9 @@ export const Route = createFileRoute("/api/public/widget/message")({
           }
           notifyOperators(supabaseAdmin, {
             trigger: human ? "human_request" : "visitor_message",
-            title: human ? "🙋 Visitor wants a human" : "New visitor message",
+            title: human
+              ? `🙋 ${vis.email} wants a human`
+              : `Message from ${vis.email}`,
             body: body.content.slice(0, 140),
             url: `/c/${conv.id}`,
             tag: `conv-${conv.id}`,
