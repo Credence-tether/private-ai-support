@@ -7,6 +7,11 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  nitro: {
+    // Self-hosting: Vercel needs Nitro's Vercel Build Output instead of a static Vite dist.
+    // Lovable builds still force their managed output internally.
+    preset: process.env.VERCEL ? "vercel" : "cloudflare-module",
+  },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
