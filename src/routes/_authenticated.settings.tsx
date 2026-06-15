@@ -2,14 +2,26 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getSettings, updateSettings, testPush } from "@/lib/operator.functions";
+import {
+  getSettings,
+  updateSettings,
+  testPush,
+  syncKnowledgeFromUrl,
+} from "@/lib/operator.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Copy, BellRing } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ArrowLeft, Copy, BellRing, RefreshCw, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { EnableNotifications } from "@/components/EnableNotifications";
 
@@ -17,10 +29,18 @@ export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsPage,
 });
 
+const OLLAMA_MODELS = ["llama3.2:3b", "qwen2.5-coder:1.5b", "tinyllama:latest"];
+const GROQ_MODELS = [
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+  "llama-3.1-70b-versatile",
+];
+
 function SettingsPage() {
   const fetchSettings = useServerFn(getSettings);
   const save = useServerFn(updateSettings);
   const sendTest = useServerFn(testPush);
+  const syncKb = useServerFn(syncKnowledgeFromUrl);
   const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -48,12 +68,24 @@ function SettingsPage() {
     onError: (e) => toast.error((e as Error).message),
   });
 
+  const syncMut = useMutation({
+    mutationFn: (url: string) => syncKb({ data: { url } }),
+    onSuccess: (r) => {
+      toast.success(`Studied ${r.pages} page(s) · ${r.chars.toLocaleString()} chars`);
+      qc.invalidateQueries({ queryKey: ["settings"] });
+      setForm(null); // re-hydrate from refetch
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
   const widgetSnippet =
     typeof window !== "undefined"
       ? `<script src="${window.location.origin}/widget.js" defer></script>`
       : `<script src="https://your-app.lovable.app/widget.js" defer></script>`;
 
   if (isLoading || !form) return <p className="p-6 text-sm text-muted-foreground">Loading…</p>;
+
+  const provider: "groq" | "ollama" = form.ai_provider ?? "groq";
 
   return (
     <div className="min-h-screen bg-muted/20">
@@ -149,26 +181,90 @@ function SettingsPage() {
           </div>
         </Card>
 
-        {/* AI */}
+        {/* AI Provider + Model */}
         <Card className="p-5">
-          <h2 className="text-lg font-semibold">AI behavior (Groq)</h2>
-          <div className="mt-3 space-y-3">
+          <h2 className="text-lg font-semibold">AI model</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Choose between Groq (cloud) or your own Ollama server (self-hosted, free).
+          </p>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Model</Label>
-              <Input
-                value={form.groq_model}
-                onChange={(e) => setForm({ ...form, groq_model: e.target.value })}
-              />
-              <p className="text-xs text-muted-foreground">
-                e.g. <code>llama-3.3-70b-versatile</code>, <code>llama-3.1-8b-instant</code>
-              </p>
+              <Label>Provider</Label>
+              <Select
+                value={provider}
+                onValueChange={(v) => setForm({ ...form, ai_provider: v })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="groq">Groq (cloud)</SelectItem>
+                  <SelectItem value="ollama">Ollama (self-hosted)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
+            {provider === "groq" ? (
+              <div className="space-y-1.5">
+                <Label>Groq model</Label>
+                <Select
+                  value={form.groq_model}
+                  onValueChange={(v) => setForm({ ...form, groq_model: v })}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {GROQ_MODELS.map((m) => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <Label>Ollama model</Label>
+                  <Select
+                    value={form.ollama_model}
+                    onValueChange={(v) => setForm({ ...form, ollama_model: v })}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {OLLAMA_MODELS.map((m) => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label>Ollama base URL</Label>
+                  <Input
+                    value={form.ollama_base_url}
+                    onChange={(e) => setForm({ ...form, ollama_base_url: e.target.value })}
+                    placeholder="http://localhost:11434"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Your Ollama server must be reachable from this app's server. For local dev:{" "}
+                    <code>ollama pull {form.ollama_model || "llama3.2:3b"}</code>.
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        </Card>
+
+        {/* AI prompt */}
+        <Card className="p-5">
+          <h2 className="text-lg font-semibold">AI prompt</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Tell the AI who it is, the tone to use, and what it should never do. This is sent on every
+            reply.
+          </p>
+          <div className="mt-3 space-y-3">
             <div className="space-y-1.5">
               <Label>System prompt</Label>
               <Textarea
-                rows={6}
+                rows={8}
                 value={form.system_prompt}
                 onChange={(e) => setForm({ ...form, system_prompt: e.target.value })}
+                placeholder="You are the support assistant for Acme Co. Be warm, accurate, and concise…"
               />
             </div>
             <div className="space-y-1.5">
@@ -178,6 +274,69 @@ function SettingsPage() {
                 value={form.away_message}
                 onChange={(e) => setForm({ ...form, away_message: e.target.value })}
               />
+            </div>
+          </div>
+        </Card>
+
+        {/* Knowledge base */}
+        <Card className="p-5">
+          <div className="flex items-start gap-2">
+            <BookOpen className="mt-1 h-5 w-5 text-primary" />
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold">Knowledge base</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                The AI uses this to answer like a professional working at the site — not generic info.
+                Paste your own copy, or sync from a URL and we'll fetch the page (and a few linked pages)
+                and turn them into facts the AI must use.
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <div className="space-y-1.5">
+              <Label>Study a website</Label>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  value={form.knowledge_url ?? ""}
+                  onChange={(e) => setForm({ ...form, knowledge_url: e.target.value })}
+                  placeholder="https://yoursite.com"
+                />
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (!form.knowledge_url) {
+                      toast.error("Enter a URL first");
+                      return;
+                    }
+                    syncMut.mutate(form.knowledge_url);
+                  }}
+                  disabled={syncMut.isPending}
+                >
+                  <RefreshCw className={`mr-1.5 h-4 w-4 ${syncMut.isPending ? "animate-spin" : ""}`} />
+                  {syncMut.isPending ? "Studying…" : "Sync now"}
+                </Button>
+              </div>
+              {form.knowledge_synced_at && (
+                <p className="text-xs text-muted-foreground">
+                  Last synced {new Date(form.knowledge_synced_at).toLocaleString()} ·{" "}
+                  {(form.knowledge_base ?? "").length.toLocaleString()} chars stored
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Knowledge text (edit freely)</Label>
+              <Textarea
+                rows={12}
+                value={form.knowledge_base ?? ""}
+                onChange={(e) => setForm({ ...form, knowledge_base: e.target.value })}
+                placeholder="Paste pricing, FAQs, product specs, policies, opening hours… anything the AI should ground its answers in."
+                className="font-mono text-xs"
+              />
+              <p className="text-xs text-muted-foreground">
+                Up to ~100,000 characters. The AI is instructed to answer only from this content and to
+                hand off to a human when something isn't covered.
+              </p>
             </div>
           </div>
         </Card>
@@ -212,9 +371,14 @@ function SettingsPage() {
                 brand_name: form.brand_name,
                 brand_color: form.brand_color,
                 greeting: form.greeting,
+                ai_provider: form.ai_provider,
                 groq_model: form.groq_model,
+                ollama_base_url: form.ollama_base_url,
+                ollama_model: form.ollama_model,
                 system_prompt: form.system_prompt,
                 away_message: form.away_message,
+                knowledge_base: form.knowledge_base,
+                knowledge_url: form.knowledge_url,
                 notify_on_new_conversation: form.notify_on_new_conversation,
                 notify_on_visitor_message: form.notify_on_visitor_message,
                 notify_on_human_request: form.notify_on_human_request,
