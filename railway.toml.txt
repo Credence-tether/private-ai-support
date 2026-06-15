@@ -1,0 +1,12 @@
+[build]
+builder = "nixpacks"
+buildCommand = "npm install && npm run build"
+
+[deploy]
+startCommand = "node -e \"import('./dist/server/server.js').then(m => { const handler = m.default; const http = require('http'); const port = process.env.PORT || 3000; http.createServer(async (req, res) => { const url = new URL(req.url, 'http://' + req.headers.host); const headers = new Headers(); for (const [k,v] of Object.entries(req.headers)) { if (v) headers.set(k, Array.isArray(v) ? v.join(',') : v); } const chunks = []; for await (const chunk of req) chunks.push(chunk); const body = ['GET','HEAD'].includes(req.method) ? undefined : Buffer.concat(chunks); const request = new Request(url.toString(), { method: req.method, headers, body }); const response = await handler.fetch(request, {}, {}); res.statusCode = response.status; response.headers.forEach((v,k) => res.setHeader(k,v)); const buf = await response.arrayBuffer(); res.end(Buffer.from(buf)); }).listen(port, () => console.log('Listening on port', port)); });\""
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[environments.production]
+[environments.production.variables]
+NODE_ENV = "production"
