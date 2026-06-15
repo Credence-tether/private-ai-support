@@ -101,15 +101,21 @@ export type Database = {
       }
       operator_settings: {
         Row: {
+          ai_provider: string
           allowed_origins: string[]
           away_message: string
           brand_color: string
           brand_name: string
           greeting: string
           groq_model: string
+          knowledge_base: string
+          knowledge_synced_at: string | null
+          knowledge_url: string
           notify_on_human_request: boolean
           notify_on_new_conversation: boolean
           notify_on_visitor_message: boolean
+          ollama_base_url: string
+          ollama_model: string
           system_prompt: string
           updated_at: string
           user_id: string
@@ -118,15 +124,21 @@ export type Database = {
           vapid_subject: string
         }
         Insert: {
+          ai_provider?: string
           allowed_origins?: string[]
           away_message?: string
           brand_color?: string
           brand_name?: string
           greeting?: string
           groq_model?: string
+          knowledge_base?: string
+          knowledge_synced_at?: string | null
+          knowledge_url?: string
           notify_on_human_request?: boolean
           notify_on_new_conversation?: boolean
           notify_on_visitor_message?: boolean
+          ollama_base_url?: string
+          ollama_model?: string
           system_prompt?: string
           updated_at?: string
           user_id: string
@@ -135,15 +147,21 @@ export type Database = {
           vapid_subject?: string
         }
         Update: {
+          ai_provider?: string
           allowed_origins?: string[]
           away_message?: string
           brand_color?: string
           brand_name?: string
           greeting?: string
           groq_model?: string
+          knowledge_base?: string
+          knowledge_synced_at?: string | null
+          knowledge_url?: string
           notify_on_human_request?: boolean
           notify_on_new_conversation?: boolean
           notify_on_visitor_message?: boolean
+          ollama_base_url?: string
+          ollama_model?: string
           system_prompt?: string
           updated_at?: string
           user_id?: string

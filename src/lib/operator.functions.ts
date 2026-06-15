@@ -204,7 +204,7 @@ export const getSettings = createServerFn({ method: "GET" })
     const { data, error } = await context.supabase
       .from("operator_settings")
       .select(
-        "system_prompt, groq_model, away_message, greeting, brand_color, brand_name, notify_on_new_conversation, notify_on_human_request, notify_on_visitor_message, allowed_origins, vapid_subject",
+        "system_prompt, groq_model, ai_provider, ollama_base_url, ollama_model, knowledge_base, knowledge_url, knowledge_synced_at, away_message, greeting, brand_color, brand_name, notify_on_new_conversation, notify_on_human_request, notify_on_visitor_message, allowed_origins, vapid_subject",
       )
       .eq("user_id", context.userId)
       .single();
@@ -219,6 +219,11 @@ export const updateSettings = createServerFn({ method: "POST" })
       .object({
         system_prompt: z.string().min(1).max(8000).optional(),
         groq_model: z.string().min(1).max(120).optional(),
+        ai_provider: z.enum(["groq", "ollama"]).optional(),
+        ollama_base_url: z.string().url().max(300).optional(),
+        ollama_model: z.string().min(1).max(120).optional(),
+        knowledge_base: z.string().max(100_000).optional(),
+        knowledge_url: z.string().max(500).optional(),
         away_message: z.string().max(2000).optional(),
         greeting: z.string().max(500).optional(),
         brand_color: z
@@ -242,6 +247,34 @@ export const updateSettings = createServerFn({ method: "POST" })
       .eq("user_id", context.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+// Scrape a URL and store the extracted text as the AI knowledge base.
+export const syncKnowledgeFromUrl = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ url: z.string().url().max(500) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    await assertOperator(context.supabase, context.userId);
+    const { scrapeWebsite } = await import("@/lib/scrape.server");
+    const result = await scrapeWebsite(data.url);
+    const syncedAt = new Date().toISOString();
+    const { error } = await context.supabase
+      .from("operator_settings")
+      .update({
+        knowledge_url: data.url,
+        knowledge_base: result.text,
+        knowledge_synced_at: syncedAt,
+      })
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return {
+      ok: true,
+      pages: result.pagesFetched,
+      chars: result.text.length,
+      synced_at: syncedAt,
+    };
   });
 
 // ---------- PUSH ----------

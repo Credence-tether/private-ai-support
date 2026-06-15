@@ -61,15 +61,17 @@ export const Route = createFileRoute("/api/public/widget/message")({
           content: body.content,
         });
 
-        // Settings: system prompt, model, away message
+        // Settings: provider, prompt, model, knowledge base, away message
         const { data: settings } = await supabaseAdmin
           .from("operator_settings")
-          .select("system_prompt, groq_model, away_message")
+          .select(
+            "system_prompt, groq_model, ai_provider, ollama_base_url, ollama_model, knowledge_base, knowledge_url, away_message",
+          )
           .limit(1)
           .maybeSingle();
 
         // Detect "talk to human" intent — flips to pending_human and notifies.
-        const { wantsHuman, groqChat } = await import("@/lib/groq.server");
+        const { wantsHuman } = await import("@/lib/groq.server");
         const human = wantsHuman(body.content);
 
         if (conv.status === "human" || conv.status === "pending_human" || human) {
@@ -111,7 +113,7 @@ export const Route = createFileRoute("/api/public/widget/message")({
           return jsonCors({ ok: true });
         }
 
-        // Bot reply via Groq
+        // Bot reply via configured AI provider
         const { data: history } = await supabaseAdmin
           .from("messages")
           .select("role, content")
@@ -119,12 +121,27 @@ export const Route = createFileRoute("/api/public/widget/message")({
           .order("created_at", { ascending: true })
           .limit(40);
 
-        const systemPrompt =
+        const basePrompt =
           settings?.system_prompt ??
           "You are a friendly, concise customer support assistant. If the user asks for a human, briefly acknowledge and let them know a human will be notified. Keep replies short.";
-        const model = settings?.groq_model ?? "llama-3.3-70b-versatile";
 
-        const groqMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
+        const kb = (settings?.knowledge_base ?? "").trim();
+        const kbBlock = kb
+          ? `\n\nYou must answer as a professional representative of the website below. Ground every answer in this knowledge base — do not invent facts. If the answer is not in the knowledge base, say so briefly and offer to connect a human.\n\n--- WEBSITE KNOWLEDGE BASE${
+              settings?.knowledge_url ? ` (source: ${settings.knowledge_url})` : ""
+            } ---\n${kb}\n--- END KNOWLEDGE BASE ---`
+          : "";
+        const systemPrompt = basePrompt + kbBlock;
+
+        const { aiChat } = await import("@/lib/ai.server");
+        const aiSettings = {
+          ai_provider: (settings?.ai_provider ?? "groq") as "groq" | "ollama",
+          groq_model: settings?.groq_model ?? "llama-3.3-70b-versatile",
+          ollama_base_url: settings?.ollama_base_url ?? "http://localhost:11434",
+          ollama_model: settings?.ollama_model ?? "llama3.2:3b",
+        };
+
+        const chatMessages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
           { role: "system", content: systemPrompt },
           ...(history ?? [])
             .filter((m) => m.role === "visitor" || m.role === "assistant")
@@ -136,9 +153,9 @@ export const Route = createFileRoute("/api/public/widget/message")({
 
         let reply = "";
         try {
-          reply = await groqChat(groqMessages, model);
+          reply = await aiChat(chatMessages, aiSettings);
         } catch (e) {
-          console.error("Groq error", e);
+          console.error("AI error", e);
           reply =
             "Sorry, I'm having trouble responding right now. Tap “Talk to a human” and someone will get back to you.";
         }
