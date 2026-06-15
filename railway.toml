@@ -1,14 +1,14 @@
 [build]
 buildCommand = "npm install && npm run build"
 
+[build.variables]
+NITRO_PRESET = "node-server"
+RAILPACK_NO_SPA = "1"
+
 [deploy]
 startCommand = "node .output/server/index.mjs"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
-
-[deploy.variables]
-RAILPACK_NO_SPA = "1"
-NITRO_PRESET = "node-server"
 
 [environments.production.variables]
 NODE_ENV = "production"
