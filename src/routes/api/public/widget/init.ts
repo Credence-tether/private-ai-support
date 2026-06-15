@@ -54,14 +54,15 @@ export const Route = createFileRoute("/api/public/widget/init")({
           .limit(1)
           .maybeSingle();
 
-        // Optional origin allowlist
-        if (
-          settings?.allowed_origins &&
-          settings.allowed_origins.length > 0 &&
-          body.site_origin &&
-          !settings.allowed_origins.includes(body.site_origin)
-        ) {
-          return jsonCors({ error: "Origin not allowed" }, { status: 403 });
+        // Origin allowlist: when configured, require a matching origin from
+        // either the request's Origin header (browser-set, not forgeable from
+        // page JS) or body.site_origin. Missing/empty origins are rejected.
+        if (settings?.allowed_origins && settings.allowed_origins.length > 0) {
+          const headerOrigin = headers.get("origin") || undefined;
+          const candidate = headerOrigin || body.site_origin;
+          if (!candidate || !settings.allowed_origins.includes(candidate)) {
+            return jsonCors({ error: "Origin not allowed" }, { status: 403 });
+          }
         }
 
         // Resolve / create visitor
